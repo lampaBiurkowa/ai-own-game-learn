@@ -85,6 +85,10 @@ impl GameState {
         self.moves
     }
 
+    pub(crate) fn score(&self) -> usize {
+        self.score
+    }
+
     fn generate_map(seed: u64) -> Vec<Vec<Cell>> {
         let mut rng = StdRng::seed_from_u64(seed);
         let mut grid = vec![vec![Cell::Floor; MAP_WIDTH]; MAP_HEIGHT];

@@ -9,6 +9,7 @@ pub(crate) struct GameClient {
     grid: Vec<Vec<Cell>>,
     player_x: usize,
     player_y: usize,
+    score: usize
 }
 
 impl GameClient {
@@ -24,6 +25,7 @@ impl GameClient {
             grid: state.grid,
             player_x: state.player_pos.0,
             player_y: state.player_pos.1,
+            score: 0
         }
     }
 
@@ -38,11 +40,16 @@ impl GameClient {
         self.player_x = state.player_pos.0;
         self.player_y = state.player_pos.1;
         self.grid = state.grid.clone();
+        self.score = state.score();
         self.enemy_killed = is_enemy_killed(&initial_grid, &state.grid, (self.player_x, self.player_y));
     }
 
     pub(crate) fn get_grid(&self) -> Vec<Vec<Cell>> {
         self.grid.clone()
+    }
+
+    pub(crate) fn get_score(&self) -> usize {
+        self.score
     }
 
     pub(crate) fn is_game_over(&self) -> bool {
@@ -101,6 +108,6 @@ fn is_enemy_killed(
     let enemy_killed = enemies_before
         .into_iter()
         .any(|id| !enemies_after.contains(&id));
-    
+
     enemy_killed
 }
