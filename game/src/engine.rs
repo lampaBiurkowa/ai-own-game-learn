@@ -1,5 +1,6 @@
 use rand::{rngs::StdRng, Rng, SeedableRng as _};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 const MAP_HEIGHT: usize = 10;
 const MAP_WIDTH: usize = 10;
@@ -14,6 +15,13 @@ pub(crate) struct EnemyAttributes {
     direction: isize,
     range: usize,
     initial_pos: usize,
+    id: String
+}
+
+impl EnemyAttributes {
+    pub(crate) fn id(&self) -> String {
+        self.id.clone()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -73,6 +81,10 @@ impl GameState {
         self.game_over
     }
 
+    pub(crate) fn moves(&self) -> u64 {
+        self.moves
+    }
+
     fn generate_map(seed: u64) -> Vec<Vec<Cell>> {
         let mut rng = StdRng::seed_from_u64(seed);
         let mut grid = vec![vec![Cell::Floor; MAP_WIDTH]; MAP_HEIGHT];
@@ -94,6 +106,7 @@ impl GameState {
                             direction: 1,
                             range,
                             initial_pos: y,
+                            id: Uuid::new_v4().to_string()
                         });
                     } else if enemy_type == 1 {
                         let range = rng.gen_range(2..=6);
@@ -105,6 +118,7 @@ impl GameState {
                             direction: 1,
                             range,
                             initial_pos: x,
+                            id: Uuid::new_v4().to_string()
                         });
                     }
                 }
@@ -186,6 +200,7 @@ impl GameState {
                         direction: 1,
                         range,
                         initial_pos: y,
+                        id: Uuid::new_v4().to_string()
                     });
                 }
             } else if random_value < 0.7 {
@@ -196,6 +211,7 @@ impl GameState {
                         direction: 1,
                         range,
                         initial_pos: new_x,
+                        id: Uuid::new_v4().to_string()
                     });
                 }
             }
@@ -229,6 +245,7 @@ impl GameState {
                                     direction: -attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
+                                    id: Uuid::new_v4().to_string()
                                 }),
                             ));
                         } else {
@@ -241,6 +258,7 @@ impl GameState {
                                     direction: attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
+                                    id: Uuid::new_v4().to_string()
                                 }),
                             ));
                         }
@@ -264,6 +282,7 @@ impl GameState {
                                     direction: -attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
+                                    id: Uuid::new_v4().to_string()
                                 }),
                             ));
                         } else {
@@ -276,6 +295,7 @@ impl GameState {
                                     direction: attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
+                                    id: Uuid::new_v4().to_string()
                                 }),
                             ));
                         }
@@ -286,7 +306,9 @@ impl GameState {
         }
     
         for (x, y, new_cell) in updates {
-            self.grid[y][x] = new_cell;
+            if self.grid[y][x] != Cell::Player {
+                self.grid[y][x] = new_cell;
+            }
         }
     }    
 }
