@@ -28,14 +28,6 @@ impl GameApiClient {
         resp.unwrap().json().unwrap()
     }
 
-    pub fn fetch_state(&self) -> GameState {
-        let resp = self.client
-            .get(format!("{}/game/{}/state", self.base_url, self.seed))
-            .send();
-
-        resp.unwrap().json().unwrap()
-    }
-
     pub fn fetch_initial_state(&self) -> Option<GameState> {
         let resp = self.client
             .get(format!("{}/game/{}/init", self.base_url, self.seed))

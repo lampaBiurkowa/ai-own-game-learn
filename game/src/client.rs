@@ -58,37 +58,53 @@ impl GameClient {
     }
 }
 
-fn is_enemy_killed(grid_before: &[Vec<Cell>], grid_after: &[Vec<Cell>], player_pos: (usize, usize)) -> bool {
+fn is_enemy_killed(
+    grid_before: &[Vec<Cell>],
+    grid_after: &[Vec<Cell>],
+    player_pos: (usize, usize),
+) -> bool {
     let (px, py) = player_pos;
     let offsets = [
         (-1, -1), (0, -1), (1, -1),
-        (-1,  0),          (1,  0),
-        (-1,  1), (0,  1), (1,  1),
+        (-1, 0),           (1, 0),
+        (-1, 1), (0, 1), (1, 1),
     ];
 
     let within_bounds = |x: isize, y: isize, grid: &[Vec<Cell>]| -> bool {
         y >= 0 && y < grid.len() as isize && x >= 0 && x < grid[0].len() as isize
     };
-
-    let enemy_ids_in_vicinity = |grid: &[Vec<Cell>]| -> Vec<String> {
-        offsets
-            .iter()
-            .filter_map(|&(dx, dy)| {
-                let nx = px as isize + dx;
-                let ny = py as isize + dy;
-                if within_bounds(nx, ny, grid) {
-                    match &grid[ny as usize][nx as usize] {
-                        Cell::EnemyVertical(attrs) | Cell::EnemyHorizontal(attrs) => Some(attrs.id()),
-                        _ => None,
-                    }
-                } else {
-                    None
+    let enemies_before: Vec<String> = offsets
+        .iter()
+        .filter_map(|&(dx, dy)| {
+            let nx = px as isize + dx;
+            let ny = py as isize + dy;
+            if within_bounds(nx, ny, grid_before) {
+                match &grid_before[ny as usize][nx as usize] {
+                    Cell::EnemyVertical(attrs) | Cell::EnemyHorizontal(attrs) => Some(attrs.id()),
+                    _ => None,
                 }
-            })
-            .collect()
-    };
+            } else {
+                None
+            }
+        })
+        .collect();
 
-    let ids_before = enemy_ids_in_vicinity(grid_before);
-    let ids_after = enemy_ids_in_vicinity(grid_after);
-    ids_before.iter().any(|id| !ids_after.contains(id))
+    let enemies_after: Vec<String> = grid_after
+        .iter()
+        .flat_map(|row| row.iter())
+        .filter_map(|cell| match cell {
+            Cell::EnemyVertical(attrs) | Cell::EnemyHorizontal(attrs) => Some(attrs.id()),
+            _ => None,
+        })
+        .collect();
+
+    let enemy_killed = enemies_before
+        .into_iter()
+        .any(|id| !enemies_after.contains(&id));
+
+    if enemy_killed {
+        println!("Enemy killed!");
+    }
+    
+    enemy_killed
 }

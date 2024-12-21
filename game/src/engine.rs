@@ -245,7 +245,7 @@ impl GameState {
                                     direction: -attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: Uuid::new_v4().to_string()
+                                    id: attrs.id()
                                 }),
                             ));
                         } else {
@@ -258,7 +258,7 @@ impl GameState {
                                     direction: attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: Uuid::new_v4().to_string()
+                                    id: attrs.id()
                                 }),
                             ));
                         }
@@ -282,7 +282,7 @@ impl GameState {
                                     direction: -attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: Uuid::new_v4().to_string()
+                                    id: attrs.id()
                                 }),
                             ));
                         } else {
@@ -295,7 +295,7 @@ impl GameState {
                                     direction: attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: Uuid::new_v4().to_string()
+                                    id: attrs.id()
                                 }),
                             ));
                         }
