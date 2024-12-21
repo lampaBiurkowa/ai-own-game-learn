@@ -101,10 +101,6 @@ fn is_enemy_killed(
     let enemy_killed = enemies_before
         .into_iter()
         .any(|id| !enemies_after.contains(&id));
-
-    if enemy_killed {
-        println!("Enemy killed!");
-    }
     
     enemy_killed
 }

@@ -78,7 +78,7 @@ impl event::EventHandler<ggez::GameError> for Game {
 
         if dx != 0 || dy != 0 {
             self.client.move_player(dx, dy);
-            if (self.client.enemy_killed()) {
+            if self.client.enemy_killed() {
                 println!("ENEMY KILLED");
             }
             if self.client.is_game_over() {
