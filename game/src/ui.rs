@@ -81,6 +81,9 @@ impl event::EventHandler<ggez::GameError> for Game {
         if dx != 0 || dy != 0 {
             self.state = self.api_client.move_player(dx, dy);
             self.state = self.api_client.fetch_state();
+            if self.state.game_over() {
+                std::process::exit(0);
+            }
         }
 
         Ok(())
