@@ -52,9 +52,5 @@ pub(crate) async fn run_http_server() {
         });
 
     let routes = init.or(move_player).or(get_state);
-    println!("redi!");
-    tokio::select! {
-        _ = warp::serve(routes).run(([127, 0, 0, 1], 3030)) => {},
-    }
-    // warp::serve(routes).run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
