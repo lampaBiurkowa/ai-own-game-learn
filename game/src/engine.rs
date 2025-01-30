@@ -25,12 +25,25 @@ impl EnemyAttributes {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[repr(u8)]
 pub(crate) enum Cell {
-    Floor,
-    Obstacle,
-    Player,
-    EnemyVertical(EnemyAttributes),
-    EnemyHorizontal(EnemyAttributes),
+    Floor = 0,
+    Obstacle = 1,
+    Player = 2,
+    EnemyVertical(EnemyAttributes) = 3,
+    EnemyHorizontal(EnemyAttributes) = 4,
+}
+
+impl Into<u8> for Cell {
+    fn into(self) -> u8 {
+        match self {
+            Self::Floor => 0,
+            Self::Obstacle => 1,
+            Self::Player => 2,
+            Self::EnemyVertical(_) => 3,
+            Self::EnemyHorizontal(_) => 4,
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -40,7 +53,7 @@ pub(crate) struct GameState {
     pub(crate) player_pos: (usize, usize),
     score: usize,
     moves: u64,
-    game_over: bool
+    game_over: Option<GameOverCause>
 }
 
 fn is_valid_vertical_spawn(grid: &[Vec<Cell>], x: usize, y: usize, range: usize) -> bool {
@@ -75,10 +88,91 @@ fn is_valid_horizontal_spawn(grid: &[Vec<Cell>], x: usize, y: usize, range: usiz
     }
     true
 }
+#[derive(Clone, Debug)]
+struct SpawnFactors {
+    obstacle_chance: f32,
+    enemy_vertical_chance: f32,
+    enemy_horizontal_chance: f32,
+    min_enemy_range: usize,
+    max_enemy_range: usize,
+}
+
+impl Default for SpawnFactors {
+    fn default() -> Self {
+        Self {
+            obstacle_chance: 0.15,
+            enemy_vertical_chance: 0.3,
+            enemy_horizontal_chance: 0.45,
+            min_enemy_range: 2,
+            max_enemy_range: 6,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) enum GameOverCause {
+    Enemy,
+    MovementLimit
+}
 
 impl GameState {
-    pub(crate) fn game_over(&self) -> bool {
-        self.game_over
+    fn populate_cell(
+        rng: &mut StdRng,
+        grid: &mut [Vec<Cell>],
+        x: usize,
+        y: usize,
+        factors: &SpawnFactors,
+    ) {
+        let random_value = rng.gen::<f32>();
+
+        if random_value < factors.obstacle_chance {
+            grid[y][x] = Cell::Obstacle;
+        } else if random_value < factors.enemy_vertical_chance {
+            let range = rng.gen_range(factors.min_enemy_range..=factors.max_enemy_range);
+            if is_valid_vertical_spawn(grid, x, y, range) {
+                grid[y][x] = Cell::EnemyVertical(EnemyAttributes {
+                    pos: y,
+                    direction: 1,
+                    range,
+                    initial_pos: y,
+                    id: Uuid::new_v4().to_string(),
+                });
+            }
+        } else if random_value < factors.enemy_horizontal_chance {
+            let range = rng.gen_range(factors.min_enemy_range..=factors.max_enemy_range);
+            if is_valid_horizontal_spawn(grid, x, y, range) {
+                grid[y][x] = Cell::EnemyHorizontal(EnemyAttributes {
+                    pos: x,
+                    direction: 1,
+                    range,
+                    initial_pos: x,
+                    id: Uuid::new_v4().to_string(),
+                });
+            }
+        }
+    }
+
+    fn populate_grid(
+        seed: u64,
+        width: usize,
+        height: usize,
+        factors: &SpawnFactors,
+    ) -> Vec<Vec<Cell>> {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let mut grid = vec![vec![Cell::Floor; width]; height];
+
+        for y in 0..height {
+            for x in 0..width {
+                Self::populate_cell(&mut rng, &mut grid, x, y, factors);
+            }
+        }
+
+        grid[height / 2][0] = Cell::Player;
+        grid
+    }
+
+    pub(crate) fn game_over(&self) -> Option<GameOverCause> {
+        self.game_over.clone()
     }
 
     pub(crate) fn moves(&self) -> u64 {
@@ -89,50 +183,36 @@ impl GameState {
         self.score
     }
 
-    fn generate_map(seed: u64) -> Vec<Vec<Cell>> {
-        let mut rng = StdRng::seed_from_u64(seed);
-        let mut grid = vec![vec![Cell::Floor; MAP_WIDTH]; MAP_HEIGHT];
-    
-        for y in 0..MAP_HEIGHT {
-            for x in 0..MAP_WIDTH {
-                if rng.gen_bool(0.2) {
-                    grid[y][x] = Cell::Obstacle;
-                } else {
-                    let enemy_type = rng.gen_range(0..10);
-    
-                    if enemy_type == 0 {
-                        let range = rng.gen_range(2..=6);
-                        if !is_valid_vertical_spawn(&grid, x, y, range) {
-                            continue;
-                        }
-                        grid[y][x] = Cell::EnemyVertical(EnemyAttributes {
-                            pos: y,
-                            direction: 1,
-                            range,
-                            initial_pos: y,
-                            id: Uuid::new_v4().to_string()
-                        });
-                    } else if enemy_type == 1 {
-                        let range = rng.gen_range(2..=6);
-                        if !is_valid_horizontal_spawn(&grid, x, y, range) {
-                            continue;
-                        }
-                        grid[y][x] = Cell::EnemyHorizontal(EnemyAttributes {
-                            pos: x,
-                            direction: 1,
-                            range,
-                            initial_pos: x,
-                            id: Uuid::new_v4().to_string()
-                        });
-                    }
+    fn clear_columns(grid: &mut Vec<Vec<Cell>>, columns: usize) {
+        for row in grid.iter_mut() {
+            for x in 0..columns {
+                if matches!(row[x], Cell::EnemyVertical(_) | Cell::EnemyHorizontal(_)) {
+                    row[x] = Cell::Floor;
                 }
             }
         }
-    
-        grid[MAP_HEIGHT / 2][0] = Cell::Player;
+    }
+
+    pub(crate) fn generate_map(seed: u64) -> Vec<Vec<Cell>> {
+        let factors = SpawnFactors::default();
+        let mut grid = Self::populate_grid(seed, MAP_WIDTH, MAP_HEIGHT, &factors);
+        Self::clear_columns(&mut grid, 2);
         grid
     }
-    
+
+    pub(crate) fn extend_map(&mut self) {
+        let mut rng = StdRng::seed_from_u64(self.seed + self.moves);
+        let factors = SpawnFactors::default();
+
+        for y in 0..MAP_HEIGHT {
+            self.grid[y].push(Cell::Floor);
+        }
+
+        for y in 0..MAP_HEIGHT {
+            let new_x = self.grid[y].len() - 1;
+            Self::populate_cell(&mut rng, &mut self.grid, new_x, y, &factors);
+        }
+    }
 
     pub(crate) fn new_with_seed(seed: u64) -> Self {
         let grid = Self::generate_map(seed);
@@ -142,13 +222,13 @@ impl GameState {
             player_pos: (0, MAP_HEIGHT / 2),
             score: 0,
             moves: 0,
-            game_over: false
+            game_over: None
         }
     }
 
     pub(crate) fn move_player(&mut self, dx: isize, dy: isize) {
         if self.moves >= MAX_MOVES {
-            self.game_over = true;
+            self.game_over = Some(GameOverCause::MovementLimit);
             println!("Game Over! Move limit reached.");
             return;
         }
@@ -176,53 +256,13 @@ impl GameState {
                 self.move_enemies();
             }
             Cell::EnemyVertical(_) | Cell::EnemyHorizontal(_) => {
-                self.game_over = true;
-                println!("Game Over! Player collided with an enemy.");
+                self.game_over = Some(GameOverCause::Enemy);
                 return;
             }
             _ => {}
         }
     }
 
-    pub(crate) fn extend_map(&mut self) {
-        let mut rng = StdRng::seed_from_u64(self.seed + self.moves);
-        for y in 0..MAP_HEIGHT {
-            self.grid[y].push(Cell::Floor);
-        }
-    
-        for y in 0..MAP_HEIGHT {
-            let new_x = self.grid[y].len() - 1;
-            let random_value = rng.gen::<f32>();
-    
-            if random_value < 0.3 {
-                self.grid[y][new_x] = Cell::Obstacle;
-            } else if random_value < 0.5 {
-                let range = rng.gen_range(2..=6);
-                if is_valid_vertical_spawn(&self.grid, new_x, y, range) {
-                    self.grid[y][new_x] = Cell::EnemyVertical(EnemyAttributes {
-                        pos: y,
-                        direction: 1,
-                        range,
-                        initial_pos: y,
-                        id: Uuid::new_v4().to_string()
-                    });
-                }
-            } else if random_value < 0.7 {
-                let range = rng.gen_range(2..=6);
-                if is_valid_horizontal_spawn(&self.grid, new_x, y, range) {
-                    self.grid[y][new_x] = Cell::EnemyHorizontal(EnemyAttributes {
-                        pos: new_x,
-                        direction: 1,
-                        range,
-                        initial_pos: new_x,
-                        id: Uuid::new_v4().to_string()
-                    });
-                }
-            }
-        }
-    }
-    
-    
     fn move_enemies(&mut self) {
         let mut updates = Vec::new();
     
