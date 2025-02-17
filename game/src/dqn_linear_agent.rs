@@ -28,8 +28,8 @@ use crate::client::GameClient;
 use crate::engine::{Cell, GameOverCause};
 
 const DISCOUNT: f32 = 0.99;
-const REPLAY_MEMORY_SIZE: usize = 50000;
-const MIN_REPLAY_MEMORY_SIZE: usize = 1000;
+const REPLAY_MEMORY_SIZE: usize = 1000;
+const MIN_REPLAY_MEMORY_SIZE: usize = 100;
 const MINIBATCH_SIZE: usize = 64;
 const EPSILON_DECAY: f32 = 0.995;
 const MIN_EPSILON: f32 = 0.01;
@@ -131,28 +131,27 @@ impl<B: Backend> StateBatcher<B> {
 
 impl<B: Backend> Batcher<StateItem, StateBatch<B>> for StateBatcher<B> {
     fn batch(&self, items: Vec<StateItem>) -> StateBatch<B> {
+        let batch_size = items.len();  // use the actual batch size
+
         let items_flattened = items
-            .clone()
-            .into_iter()
-            .map(|x| x.grid_flattened)
-            .collect::<Vec<_>>()
-            .into_iter()
+            .iter()
+            .map(|x| &x.grid_flattened)
             .flatten()
-            .collect::<Vec<_>>();
+            .cloned()
+            .collect::<Vec<f32>>();
 
-        let grids = Tensor::<B, 1>::from_data(TensorData::from(
-            items_flattened.as_slice()
-        ), &self.device).reshape([1, 5, 10, 10]);
+        let grids = Tensor::<B, 1>::from_data(TensorData::from(items_flattened.as_slice()), &self.device)
+            .reshape([batch_size, 5, 10, 10]);
 
-        let q_values = Tensor::<B, 1>::from_data(TensorData::from(items
-            .into_iter()
-            .map(|x| x.q_values)
-            .collect::<Vec<_>>()
-            .into_iter()
+        let q_values_flattened = items
+            .iter()
+            .map(|x| &x.q_values)
             .flatten()
-            .collect::<Vec<_>>()
-            .as_slice()
-        ), &self.device).reshape([1, 4]);
+            .cloned()
+            .collect::<Vec<f32>>();
+
+        let q_values = Tensor::<B, 1>::from_data(TensorData::from(q_values_flattened.as_slice()), &self.device)
+            .reshape([batch_size, 4]);
 
         StateBatch { grids, q_values }
     }
@@ -241,8 +240,7 @@ pub(crate) fn train_agent(url: &str, seed: u64, episodes: usize) {
                     .enumerate()
                     .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
                     .map(|(index, _)| index).unwrap();
-                // println!("{}", x);
-                // println!("{:?}", q_values);
+                
                 let mut file = OpenOptions::new()
                     .create(true)
                     .append(true)
@@ -268,21 +266,22 @@ pub(crate) fn train_agent(url: &str, seed: u64, episodes: usize) {
             }
 
             let mut reward = match game_client.is_game_over() {
-                Some(GameOverCause::Enemy) => -0.2,
+                Some(GameOverCause::Enemy) => -0.0,
                 _ => 0.0
             };
 
             if !done && !game_client.player_moved() {
-                reward -= 0.2;
+                reward -= 5.0;
                 illegal_moves += 1;
                 done = true;
             }
-            // reward += game_client.get_score() as f32 / 10.0;
+
+            reward += game_client.get_player_position().0 as f32 / 10.0;
             reward += if game_client.score_increased() {
-                0.0//game_client.get_score() as f32 / 10.0
+                0.0//game_client.get_score() as f32 // 10.0
             } else if game_client.player_moved_rightwards() {
                 rightwards_moves += 1;
-                0.0//game_client.get_player_position().0.min(5) as f32
+                0.0
             } else if game_client.player_moved() {
                 no_progress_moves += 1;
                 -0.0
@@ -292,7 +291,6 @@ pub(crate) fn train_agent(url: &str, seed: u64, episodes: usize) {
 
             if game_client.enemy_killed() {
                 enemies_killed += 1;
-                // reward += 0.1;
             }
 
             let new_state = game_client.get_grid();
@@ -396,7 +394,7 @@ pub(crate) fn train_agent(url: &str, seed: u64, episodes: usize) {
             }
         }
 
-        if epsilon > MIN_EPSILON {
+        if episode > MIN_REPLAY_MEMORY_SIZE && epsilon > MIN_EPSILON {
             epsilon = (epsilon * EPSILON_DECAY).max(MIN_EPSILON);
         }
         episode_scores.push(game_client.get_score());
@@ -405,6 +403,8 @@ pub(crate) fn train_agent(url: &str, seed: u64, episodes: usize) {
         let average_reward = episode_rewards.iter().sum::<f32>() as f32 / episode_rewards.len() as f32;
         let last_scores = episode_scores.iter().rev().take(50).collect::<Vec<_>>().into_iter().rev().cloned().collect::<Vec<_>>();
         let last_average_scores = last_scores.iter().sum::<usize>() as f32 / last_scores.len() as f32;
+        let last_rewards = episode_rewards.iter().rev().take(50).collect::<Vec<_>>().into_iter().rev().cloned().collect::<Vec<_>>();
+        let last_average_rewards = last_rewards.iter().sum::<f32>() as f32 / last_scores.len() as f32;
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -412,8 +412,8 @@ pub(crate) fn train_agent(url: &str, seed: u64, episodes: usize) {
             .open("episode_rewards.log").unwrap();
         writeln!(
             file,
-            "Episode: {} (eps: {}), Reward: {}, score:{} bad moves: {} enemies: {} illegal {} rightward {}, avg reward: {}, Avg score: {}, Last Avg score: {}",
-            episode, epsilon, episode_reward, game_client.get_score(), no_progress_moves, enemies_killed, illegal_moves, rightwards_moves, average_reward, average_score, last_average_scores
+            "Episode: {} (eps: {}), Reward: {}, score:{} bad moves: {} enemies: {} illegal {} rightward {}, avg reward: {}, last avg reward: {}, Avg score: {}, Last Avg score: {}",
+            episode, epsilon, episode_reward, game_client.get_score(), no_progress_moves, enemies_killed, illegal_moves, rightwards_moves, average_reward, last_average_rewards, average_score, last_average_scores
         ).unwrap();
     }
 }
