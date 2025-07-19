@@ -9,27 +9,34 @@ use crate::{ui::Game, AppState};
 
 use rand::Rng;
 
-struct Particle {
+struct SquareParticle {
     pos: Vec2,
     vel: Vec2,
-    radius: f32,
+    size: f32,
+    color: Color,
 }
 
 pub struct MenuState {
     selected: usize,
     options: Vec<String>,
-    particles: Vec<Particle>,
+    particles: Vec<SquareParticle>,
 }
 
 impl MenuState {
     pub fn new() -> Self {
         let mut rng = rand::thread_rng();
         let mut particles = Vec::new();
+
         for _ in 0..50 {
-            particles.push(Particle {
+            particles.push(SquareParticle {
                 pos: Vec2::new(rng.gen_range(0.0..320.0), rng.gen_range(0.0..320.0)),
-                vel: Vec2::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)),
-                radius: rng.gen_range(2.0..5.0),
+                vel: Vec2::new(rng.gen_range(-0.7..0.7), rng.gen_range(-0.7..0.7)),
+                size: rng.gen_range(8.0..20.0),
+                color: Color::from_rgb(
+                    rng.gen_range(50..200),
+                    rng.gen_range(50..200),
+                    rng.gen_range(50..200),
+                ),
             });
         }
 
@@ -74,10 +81,10 @@ impl MenuState {
     pub fn update(&mut self, _ctx: &mut Context) -> GameResult {
         for p in &mut self.particles {
             p.pos += p.vel;
-            if p.pos.x < 0.0 || p.pos.x > 320.0 {
+            if p.pos.x < 0.0 || p.pos.x > 320.0 - p.size {
                 p.vel.x *= -1.0;
             }
-            if p.pos.y < 0.0 || p.pos.y > 320.0 {
+            if p.pos.y < 0.0 || p.pos.y > 320.0 - p.size {
                 p.vel.y *= -1.0;
             }
         }
@@ -109,26 +116,31 @@ impl MenuState {
         }
 
         for p in &self.particles {
-            let mesh = graphics::Mesh::new_circle(
+            let rect = graphics::Rect::new(p.pos.x, p.pos.y, p.size, p.size);
+            let mesh = graphics::Mesh::new_rectangle(
                 ctx,
                 graphics::DrawMode::fill(),
-                p.pos,
-                p.radius,
-                0.1,
-                Color::from_rgba(0, 255, 255, 100),
+                rect,
+                p.color,
             )?;
             canvas.draw(&mesh, DrawParam::default());
         }
+
 
         let title = graphics::Text::new(("Chasin' Blocks"));
         let dest = Vec2::new(40.0, 40.0);
         canvas.draw(&title, DrawParam::default().dest(dest));
 
         for (i, option) in self.options.iter().enumerate() {
-            let mut text = Text::new(option);
+            let mut fragment = graphics::TextFragment::new(option.clone());
+
             if i == self.selected {
-                text.add("  <");
+                fragment = fragment.color(Color::YELLOW);
+            } else {
+                fragment = fragment.color(Color::WHITE);
             }
+
+            let text = Text::new(fragment);
 
             let x = screen_w / 2.0 - text.dimensions(ctx).unwrap().x as f32 / 2.0;
             let y = 100.0 + i as f32 * 40.0;
