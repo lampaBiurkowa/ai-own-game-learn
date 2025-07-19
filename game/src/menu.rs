@@ -1,8 +1,5 @@
 use ggez::{
-    glam::Vec2,
-    graphics::{self, Canvas, Color, DrawParam, Drawable, Text},
-    input::keyboard::{KeyCode, KeyInput},
-    Context, GameError, GameResult,
+    audio::{SoundSource, Source}, glam::Vec2, graphics::{self, Canvas, Color, DrawParam, Drawable, Text}, input::keyboard::{KeyCode, KeyInput}, Context, GameError, GameResult
 };
 
 use crate::{ui::Game, AppState};
@@ -20,10 +17,11 @@ pub struct MenuState {
     selected: usize,
     options: Vec<String>,
     particles: Vec<SquareParticle>,
+    source: Source
 }
 
 impl MenuState {
-    pub fn new() -> Self {
+    pub fn new(source: Source) -> Self {
         let mut rng = rand::thread_rng();
         let mut particles = Vec::new();
 
@@ -44,6 +42,7 @@ impl MenuState {
             options: vec!["Start".to_string(), "Quit".to_string()],
             selected: 0,
             particles,
+            source
         }
     }
 
@@ -65,8 +64,11 @@ impl MenuState {
             }
             Some(KeyCode::Return) => match self.selected {
                 0 => {
-                    // ✅ Now works because ctx is passed in
-                    let game = Game::new(ctx)?;
+                    self.source.stop(&ctx.audio).unwrap();
+                    let mut music = Source::new(&ctx.audio, "/game.mp3")?;
+                    music.set_repeat(true);
+                    music.play(&ctx.audio).unwrap();
+                    let game = Game::new(ctx, music)?;
                     return Ok(Some(AppState::Game(game)));
                 }
                 1 => std::process::exit(0),

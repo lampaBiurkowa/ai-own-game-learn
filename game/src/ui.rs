@@ -1,9 +1,5 @@
 use ggez::{
-    event,
-    glam::Vec2,
-    graphics::{self, Color, DrawParam, Image},
-    input::keyboard::{KeyCode, KeyInput},
-    Context, GameError, GameResult,
+    audio::Source, event, glam::Vec2, graphics::{self, Color, DrawParam, Image}, input::keyboard::{KeyCode, KeyInput}, Context, GameError, GameResult
 };
 
 use crate::{
@@ -14,10 +10,11 @@ use crate::{
 pub(crate) struct Game {
     images: Images,
     client: GameClient,
+    source: Source
 }
 
 impl Game {
-    pub fn new(ctx: &mut Context) -> GameResult<Self> {
+    pub fn new(ctx: &mut Context, source: Source) -> GameResult<Self> {
         let client = GameClient::new("http://localhost:3030", 1);
         let images = Images {
             player: Image::from_path(ctx, "/player.png")?,
@@ -26,7 +23,7 @@ impl Game {
             enemy_vertical: Image::from_path(ctx, "/enemy-vertical.png")?,
             enemy_horizontal: Image::from_path(ctx, "/enemy-horizontal.png")?,
         };
-        Ok(Self { images, client })
+        Ok(Self { images, client, source })
     }
 }
 
