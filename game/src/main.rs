@@ -1,4 +1,10 @@
-use ggez::{audio::{SoundSource, Source}, conf::{WindowMode, WindowSetup}, event, input::keyboard::KeyInput, Context, GameResult};
+use ggez::{
+    audio::{SoundSource, Source},
+    conf::{WindowMode, WindowSetup},
+    event,
+    input::keyboard::KeyInput,
+    Context, GameResult,
+};
 use server::run_http_server;
 
 mod client;
@@ -56,7 +62,6 @@ fn main() -> GameResult {
     music.set_repeat(true);
     music.play(&ctx.audio).unwrap();
     let state = AppState::Menu(MenuState::new(music));
-    
-    
+
     event::run(ctx, event_loop, state)
 }
