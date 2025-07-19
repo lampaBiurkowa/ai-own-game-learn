@@ -15,7 +15,7 @@ pub(crate) struct EnemyAttributes {
     direction: isize,
     range: usize,
     initial_pos: usize,
-    id: String
+    id: String,
 }
 
 impl EnemyAttributes {
@@ -53,7 +53,7 @@ pub(crate) struct GameState {
     pub(crate) player_pos: (usize, usize),
     score: usize,
     moves: u64,
-    game_over: Option<GameOverCause>
+    game_over: Option<GameOverCause>,
 }
 
 fn is_valid_vertical_spawn(grid: &[Vec<Cell>], x: usize, y: usize, range: usize) -> bool {
@@ -65,7 +65,10 @@ fn is_valid_vertical_spawn(grid: &[Vec<Cell>], x: usize, y: usize, range: usize)
     let max_y = (y + range).min(MAP_HEIGHT - 1);
 
     for yy in min_y..=max_y {
-        if matches!(grid[yy][x], Cell::EnemyVertical(_) | Cell::EnemyHorizontal(_) | Cell::Obstacle) {
+        if matches!(
+            grid[yy][x],
+            Cell::EnemyVertical(_) | Cell::EnemyHorizontal(_) | Cell::Obstacle
+        ) {
             return false;
         }
     }
@@ -82,7 +85,10 @@ fn is_valid_horizontal_spawn(grid: &[Vec<Cell>], x: usize, y: usize, range: usiz
     let max_x = (x + range).min(grid[y].len() - 1);
 
     for xx in min_x..=max_x {
-        if matches!(grid[y][xx], Cell::EnemyVertical(_) | Cell::EnemyHorizontal(_)) {
+        if matches!(
+            grid[y][xx],
+            Cell::EnemyVertical(_) | Cell::EnemyHorizontal(_)
+        ) {
             return false;
         }
     }
@@ -112,7 +118,7 @@ impl Default for SpawnFactors {
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) enum GameOverCause {
     Enemy,
-    MovementLimit
+    MovementLimit,
 }
 
 impl GameState {
@@ -222,7 +228,7 @@ impl GameState {
             player_pos: (0, MAP_HEIGHT / 2),
             score: 0,
             moves: 0,
-            game_over: None
+            game_over: None,
         }
     }
 
@@ -265,7 +271,7 @@ impl GameState {
 
     fn move_enemies(&mut self) {
         let mut updates = Vec::new();
-    
+
         for y in 0..MAP_HEIGHT {
             let row_len = self.grid[y].len();
             for x in 0..row_len {
@@ -274,7 +280,7 @@ impl GameState {
                         let new_pos = (attrs.pos as isize + attrs.direction) as usize;
                         let min_pos = attrs.initial_pos.saturating_sub(attrs.range);
                         let max_pos = attrs.initial_pos + attrs.range;
-    
+
                         if new_pos < min_pos
                             || new_pos > max_pos
                             || new_pos >= MAP_HEIGHT
@@ -289,7 +295,7 @@ impl GameState {
                                     direction: -attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: attrs.id()
+                                    id: attrs.id(),
                                 }),
                             ));
                         } else {
@@ -302,7 +308,7 @@ impl GameState {
                                     direction: attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: attrs.id()
+                                    id: attrs.id(),
                                 }),
                             ));
                         }
@@ -311,7 +317,7 @@ impl GameState {
                         let new_pos = (attrs.pos as isize + attrs.direction) as usize;
                         let min_pos = attrs.initial_pos.saturating_sub(attrs.range);
                         let max_pos = attrs.initial_pos + attrs.range;
-    
+
                         if new_pos < min_pos
                             || new_pos > max_pos
                             || new_pos >= self.grid[y].len()
@@ -326,7 +332,7 @@ impl GameState {
                                     direction: -attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: attrs.id()
+                                    id: attrs.id(),
                                 }),
                             ));
                         } else {
@@ -339,7 +345,7 @@ impl GameState {
                                     direction: attrs.direction,
                                     range: attrs.range,
                                     initial_pos: attrs.initial_pos,
-                                    id: attrs.id()
+                                    id: attrs.id(),
                                 }),
                             ));
                         }
@@ -348,11 +354,11 @@ impl GameState {
                 }
             }
         }
-    
+
         for (x, y, new_cell) in updates {
             if self.grid[y][x] != Cell::Player {
                 self.grid[y][x] = new_cell;
             }
         }
-    }    
+    }
 }

@@ -6,7 +6,7 @@ use crate::{engine::GameState, server::MoveCommand};
 pub(crate) struct GameApiClient {
     client: Client,
     base_url: String,
-    seed: u64
+    seed: u64,
 }
 
 impl GameApiClient {
@@ -14,13 +14,14 @@ impl GameApiClient {
         GameApiClient {
             client: Client::new(),
             base_url: base_url.to_string(),
-            seed
+            seed,
         }
     }
 
     pub fn move_player(&self, dx: isize, dy: isize) -> GameState {
         let move_command = MoveCommand { dx, dy };
-        let resp = self.client
+        let resp = self
+            .client
             .post(format!("{}/game/{}/move", self.base_url, self.seed))
             .json(&move_command)
             .send();
@@ -29,7 +30,8 @@ impl GameApiClient {
     }
 
     pub fn fetch_initial_state(&self) -> Option<GameState> {
-        let resp = self.client
+        let resp = self
+            .client
             .get(format!("{}/game/{}/init", self.base_url, self.seed))
             .send();
 

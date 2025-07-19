@@ -1,6 +1,15 @@
-use ggez::{event, glam::Vec2, graphics::{self, Color, DrawParam, Image}, input::keyboard::{KeyCode, KeyInput}, Context, GameError, GameResult};
+use ggez::{
+    event,
+    glam::Vec2,
+    graphics::{self, Color, DrawParam, Image},
+    input::keyboard::{KeyCode, KeyInput},
+    Context, GameError, GameResult,
+};
 
-use crate::{client::GameClient, engine::{Cell, TILE_SIZE}};
+use crate::{
+    client::GameClient,
+    engine::{Cell, TILE_SIZE},
+};
 
 pub(crate) struct Game {
     images: Images,
@@ -36,7 +45,7 @@ impl event::EventHandler<ggez::GameError> for Game {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from([0.2, 0.2, 0.2, 1.0]));
-    
+
         let viewport_grid = self.client.get_grid();
         for (y, row) in viewport_grid.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
@@ -47,17 +56,22 @@ impl event::EventHandler<ggez::GameError> for Game {
                     Cell::EnemyHorizontal { .. } => &self.images.enemy_horizontal,
                     Cell::Player => &self.images.player,
                 };
-    
+
                 let dest = Vec2::new((x as f32) * TILE_SIZE, (y as f32) * TILE_SIZE);
                 canvas.draw(image, DrawParam::new().dest(dest));
             }
         }
-    
+
         canvas.finish(ctx)?;
         Ok(())
     }
 
-    fn key_down_event(&mut self, _ctx: &mut Context, input: KeyInput, _: bool) -> Result<(), GameError> {
+    fn key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        input: KeyInput,
+        _: bool,
+    ) -> Result<(), GameError> {
         let (dx, dy) = match input.keycode {
             Some(KeyCode::Up) => (0, -1),
             Some(KeyCode::Down) => (0, 1),

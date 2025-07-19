@@ -1,4 +1,7 @@
-use crate::{engine::{Cell, GameOverCause}, transport::GameApiClient};
+use crate::{
+    engine::{Cell, GameOverCause},
+    transport::GameApiClient,
+};
 
 pub(crate) struct GameClient {
     api_client: GameApiClient,
@@ -12,7 +15,7 @@ pub(crate) struct GameClient {
     score: usize,
     score_increased: bool,
     player_moved: bool,
-    player_moved_rightwards: bool
+    player_moved_rightwards: bool,
 }
 
 const VIEWPORT_WIDTH: usize = 10;
@@ -47,54 +50,59 @@ impl GameClient {
         self.moves = state.moves();
         self.move_successful = self.moves > initial_moves;
         self.game_over = state.game_over();
-        self.player_moved = self.player_x != state.player_pos.0 || self.player_y != state.player_pos.1;
+        self.player_moved =
+            self.player_x != state.player_pos.0 || self.player_y != state.player_pos.1;
         self.player_moved_rightwards = state.player_pos.0 > self.player_x;
         self.player_x = state.player_pos.0;
         self.player_y = state.player_pos.1;
         self.grid = state.grid.clone();
         self.score = state.score();
         self.score_increased = self.score > initial_score;
-        self.enemy_killed = is_enemy_killed(&initial_grid, &state.grid, (self.player_x, self.player_y));
+        self.enemy_killed =
+            is_enemy_killed(&initial_grid, &state.grid, (self.player_x, self.player_y));
     }
 
     pub(crate) fn get_grid(&self) -> Vec<Vec<Cell>> {
         let grid_height = self.grid.len();
-        let grid_width = if grid_height > 0 { self.grid[0].len() } else { 0 };
-    
+        let grid_width = if grid_height > 0 {
+            self.grid[0].len()
+        } else {
+            0
+        };
+
         let mut start_x = if self.player_x < VIEWPORT_WIDTH / 2 {
             0
         } else {
             self.player_x - VIEWPORT_WIDTH / 2
         };
         let mut end_x = start_x + VIEWPORT_WIDTH;
-    
+
         let mut start_y = if self.player_y < VIEWPORT_HEIGHT / 2 {
             0
         } else {
             self.player_y - VIEWPORT_HEIGHT / 2
         };
         let mut end_y = start_y + VIEWPORT_HEIGHT;
-    
+
         if end_x > grid_width {
             end_x = grid_width;
             if end_x >= VIEWPORT_WIDTH {
                 start_x = end_x - VIEWPORT_WIDTH;
             }
         }
-    
+
         if end_y > grid_height {
             end_y = grid_height;
             if end_y >= VIEWPORT_HEIGHT {
                 start_y = end_y - VIEWPORT_HEIGHT;
             }
         }
-    
+
         self.grid[start_y..end_y]
             .iter()
             .map(|row| row[start_x..end_x].to_vec())
             .collect()
     }
-       
 
     pub(crate) fn get_score(&self) -> usize {
         self.score
@@ -132,9 +140,14 @@ fn is_enemy_killed(
 ) -> bool {
     let (px, py) = player_pos;
     let offsets = [
-        (-1, -1), (0, -1), (1, -1),
-        (-1, 0),           (1, 0),
-        (-1, 1), (0, 1), (1, 1),
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
     ];
 
     let within_bounds = |x: isize, y: isize, grid: &[Vec<Cell>]| -> bool {
