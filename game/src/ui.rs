@@ -1,81 +1,81 @@
-// use ggez::{event, glam::Vec2, graphics::{self, Color, DrawParam, Image}, input::keyboard::{KeyCode, KeyInput}, Context, GameError, GameResult};
+use ggez::{event, glam::Vec2, graphics::{self, Color, DrawParam, Image}, input::keyboard::{KeyCode, KeyInput}, Context, GameError, GameResult};
 
-// use crate::{client::GameClient, engine::{Cell, TILE_SIZE, VIEWPORT_HEIGHT, VIEWPORT_WIDTH}};
+use crate::{client::GameClient, engine::{Cell, TILE_SIZE}};
 
-// pub(crate) struct Game {
-//     images: Images,
-//     client: GameClient,
-// }
+pub(crate) struct Game {
+    images: Images,
+    client: GameClient,
+}
 
-// impl Game {
-//     pub fn new(ctx: &mut Context) -> GameResult<Self> {
-//         let client = GameClient::new("http://localhost:3030", 1);
-//         let images = Images {
-//             player: Image::from_path(ctx, "/player.png")?,
-//             obstacle: Image::from_path(ctx, "/obstacle.png")?,
-//             floor: Image::from_path(ctx, "/floor.png")?,
-//             enemy_vertical: Image::from_path(ctx, "/enemy-vertical.png")?,
-//             enemy_horizontal: Image::from_path(ctx, "/enemy-horizontal.png")?,
-//         };
-//         Ok(Self { images, client })
-//     }
-// }
+impl Game {
+    pub fn new(ctx: &mut Context) -> GameResult<Self> {
+        let client = GameClient::new("http://localhost:3030", 1);
+        let images = Images {
+            player: Image::from_path(ctx, "/player.png")?,
+            obstacle: Image::from_path(ctx, "/obstacle.png")?,
+            floor: Image::from_path(ctx, "/floor.png")?,
+            enemy_vertical: Image::from_path(ctx, "/enemy-vertical.png")?,
+            enemy_horizontal: Image::from_path(ctx, "/enemy-horizontal.png")?,
+        };
+        Ok(Self { images, client })
+    }
+}
 
-// struct Images {
-//     player: Image,
-//     obstacle: Image,
-//     floor: Image,
-//     enemy_vertical: Image,
-//     enemy_horizontal: Image,
-// }
+struct Images {
+    player: Image,
+    obstacle: Image,
+    floor: Image,
+    enemy_vertical: Image,
+    enemy_horizontal: Image,
+}
 
-// impl event::EventHandler<ggez::GameError> for Game {
-//     fn update(&mut self, _ctx: &mut Context) -> GameResult {
-//         Ok(())
-//     }
+impl event::EventHandler<ggez::GameError> for Game {
+    fn update(&mut self, _ctx: &mut Context) -> GameResult {
+        Ok(())
+    }
 
-//     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-//         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from([0.2, 0.2, 0.2, 1.0]));
+    fn draw(&mut self, ctx: &mut Context) -> GameResult {
+        let mut canvas = graphics::Canvas::from_frame(ctx, Color::from([0.2, 0.2, 0.2, 1.0]));
     
-//         let viewport_grid = self.client.get_grid();
-//         for (y, row) in viewport_grid.iter().enumerate() {
-//             for (x, cell) in row.iter().enumerate() {
-//                 let image = match cell {
-//                     Cell::Floor => &self.images.floor,
-//                     Cell::Obstacle => &self.images.obstacle,
-//                     Cell::EnemyVertical { .. } => &self.images.enemy_vertical,
-//                     Cell::EnemyHorizontal { .. } => &self.images.enemy_horizontal,
-//                     Cell::Player => &self.images.player,
-//                 };
+        let viewport_grid = self.client.get_grid();
+        for (y, row) in viewport_grid.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                let image = match cell {
+                    Cell::Floor => &self.images.floor,
+                    Cell::Obstacle => &self.images.obstacle,
+                    Cell::EnemyVertical { .. } => &self.images.enemy_vertical,
+                    Cell::EnemyHorizontal { .. } => &self.images.enemy_horizontal,
+                    Cell::Player => &self.images.player,
+                };
     
-//                 let dest = Vec2::new((x as f32) * TILE_SIZE, (y as f32) * TILE_SIZE);
-//                 canvas.draw(image, DrawParam::new().dest(dest));
-//             }
-//         }
+                let dest = Vec2::new((x as f32) * TILE_SIZE, (y as f32) * TILE_SIZE);
+                canvas.draw(image, DrawParam::new().dest(dest));
+            }
+        }
     
-//         canvas.finish(ctx)?;
-//         Ok(())
-//     }
+        canvas.finish(ctx)?;
+        Ok(())
+    }
 
-//     fn key_down_event(&mut self, _ctx: &mut Context, input: KeyInput, _: bool) -> Result<(), GameError> {
-//         let (dx, dy) = match input.keycode {
-//             Some(KeyCode::Up) => (0, -1),
-//             Some(KeyCode::Down) => (0, 1),
-//             Some(KeyCode::Left) => (-1, 0),
-//             Some(KeyCode::Right) => (1, 0),
-//             _ => (0, 0),
-//         };
+    fn key_down_event(&mut self, _ctx: &mut Context, input: KeyInput, _: bool) -> Result<(), GameError> {
+        let (dx, dy) = match input.keycode {
+            Some(KeyCode::Up) => (0, -1),
+            Some(KeyCode::Down) => (0, 1),
+            Some(KeyCode::Left) => (-1, 0),
+            Some(KeyCode::Right) => (1, 0),
+            _ => (0, 0),
+        };
 
-//         if dx != 0 || dy != 0 {
-//             self.client.move_player(dx, dy);
-//             if self.client.enemy_killed() {
-//                 println!("ENEMY KILLED");
-//             }
-//             if self.client.is_game_over() {
-//                 std::process::exit(0);
-//             }
-//         }
+        if dx != 0 || dy != 0 {
+            self.client.move_player(dx, dy);
+            if self.client.enemy_killed() {
+                println!("ENEMY KILLED");
+            }
+            if self.client.is_game_over().is_some() {
+                std::process::exit(0);
+            }
+        }
 
-//         Ok(())
-//     }
-// }
+        Ok(())
+    }
+}
