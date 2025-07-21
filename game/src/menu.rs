@@ -1,7 +1,7 @@
 use ggez::{
     audio::{SoundSource, Source},
     glam::Vec2,
-    graphics::{self, Canvas, Color, DrawParam, Drawable, Text, TextFragment},
+    graphics::{self, Canvas, Color, DrawParam, Image, Text, TextFragment},
     input::keyboard::{KeyCode, KeyInput},
     Context, GameError, GameResult,
 };
@@ -16,7 +16,6 @@ struct SquareParticle {
     size: f32,
     color: Color,
 }
-
 
 enum MenuPhase {
     SplashStudio,
@@ -36,10 +35,16 @@ pub struct MenuState {
     box_open: f32,
     intro_particles: Vec<SquareParticle>,
     fade_alpha: f32,
+    block_chaser_pos: Vec2,
+    block_target_path: Vec<Vec2>,
+    block_path_index: usize,
+    block_timer: f32,
+    destruction_particles: Vec<SquareParticle>,
+    fade_image: Image,
 }
 
 impl MenuState {
-    pub fn new(source: Source) -> Self {
+    pub fn new(source: Source, fade_image: Image) -> Self {
         let mut rng = rand::thread_rng();
         let mut particles = Vec::new();
 
@@ -56,15 +61,15 @@ impl MenuState {
             });
         }
         let mut intro_particles = Vec::new();
-        for _ in 0..60 {
+        for _ in 0..70 {
             intro_particles.push(SquareParticle {
                 pos: Vec2::new(160.0, 160.0),
                 vel: Vec2::new(rng.gen_range(-3.0..3.0), rng.gen_range(-3.0..3.0)),
                 size: rng.gen_range(2.0..5.0),
                 color: Color::from_rgb(
-                    rng.gen_range(160..255),
-                    rng.gen_range(160..255),
-                    rng.gen_range(160..255),
+                    rng.gen_range(40..255),
+                    rng.gen_range(40..255),
+                    rng.gen_range(40..255),
                 ),
             });
         }
@@ -85,6 +90,17 @@ impl MenuState {
             box_open: 0.0,
             intro_particles,
             fade_alpha: 1.0,
+            block_chaser_pos: Vec2::new(40.0, 80.0),
+            block_target_path: vec![
+                Vec2::new(40.0, 80.0),
+                Vec2::new(260.0, 80.0),
+                Vec2::new(260.0, 200.0),
+                Vec2::new(40.0, 200.0),
+            ],
+            block_path_index: 1,
+            block_timer: 0.0,
+            destruction_particles: Vec::new(),
+            fade_image,
         }
     }
 
@@ -155,14 +171,50 @@ impl MenuState {
                 }
 
                 if self.splash_timer > 7.0 {
-                    self.phase = MenuPhase::MainMenu;
+                    self.phase = MenuPhase::SplashGameTitle;
                     self.splash_timer = 0.0;
                 }
 
                 return Ok(());
             }
             MenuPhase::SplashGameTitle => {
-                return Ok(());
+                let dt = ctx.time.delta().as_secs_f32();
+                self.block_timer += dt;
+
+                let speed = 100.0;
+                let target = self.block_target_path[self.block_path_index];
+                let dir = (target - self.block_chaser_pos).normalize_or_zero();
+                self.block_chaser_pos += dir * speed * dt;
+                if self.block_chaser_pos.distance(target) < 4.0 {
+                    for _ in 0..30 {
+                        self.destruction_particles.push(SquareParticle {
+                            pos: self.block_target_path[self.block_path_index],
+                            vel: Vec2::new(
+                                rand::random::<f32>() * 2.0 - 1.0,
+                                rand::random::<f32>() * 2.0 + 1.0,
+                            ),
+                            size: rand::random::<f32>() * 3.0 + 2.0,
+                            color: Color::from_rgb(50, 120, 255),
+                        });
+                    }
+                    if self.block_path_index < self.block_target_path.len() - 1 {
+                        self.block_path_index += 1;
+                    } else {
+                        self.block_chaser_pos = self.block_target_path[self.block_path_index];
+                    }
+                }
+
+                for p in &mut self.destruction_particles {
+                    p.pos += p.vel;
+                    p.vel.y += 0.1; // gravity
+                }
+
+                if self.block_timer >= 8.0 {
+                    self.phase = MenuPhase::MainMenu;
+                    self.splash_timer = 0.0;
+                }
+
+                Ok(())
             }
             MenuPhase::MainMenu => {
                 for p in &mut self.particles {
@@ -184,8 +236,6 @@ impl MenuState {
 
                 Ok(())
             }
-
-            _ => Ok(()),
         }
     }
 
@@ -194,7 +244,6 @@ impl MenuState {
             MenuPhase::SplashStudio => {
                 let mut canvas = Canvas::from_frame(ctx, Color::BLACK);
 
-                // Draw cardboard box
                 let box_color = Color::from_rgb(160, 110, 50);
                 let body = graphics::Mesh::new_rectangle(
                     ctx,
@@ -231,7 +280,6 @@ impl MenuState {
                         .offset(Vec2::new(1.0, 1.0)),
                 );
 
-                // Particles flying out
                 if self.splash_timer > 3.0 {
                     for p in &self.intro_particles {
                         let rect = graphics::Rect::new(p.pos.x, p.pos.y, p.size, p.size);
@@ -245,7 +293,6 @@ impl MenuState {
                     }
                 }
 
-                // Text reveal
                 if self.splash_timer > 2.0 {
                     let t = ((self.splash_timer - 2.0) * 1.2).min(1.0);
                     let bounce = (t * std::f32::consts::PI).sin() * 10.0;
@@ -258,6 +305,32 @@ impl MenuState {
                     let x = 160.0 - dims.x / 2.0;
                     let y = 240.0 - bounce;
                     canvas.draw(&text, DrawParam::default().dest(Vec2::new(x, y)));
+                }
+
+                if self.splash_timer > 3.5 {
+                    let text = Text::new(
+                        TextFragment::new("presents")
+                            .scale(20.0)
+                            .color(Color::WHITE),
+                    );
+                    let dims = text.measure(ctx)?;
+                    let x = 160.0 - dims.x / 2.0;
+                    let y = 270.0;
+
+                    // Draw the text fully
+                    canvas.draw(&text, DrawParam::default().dest(Vec2::new(x, y)));
+
+                    // Overlay fade-out rectangle
+                    let time_since = self.splash_timer - 3.5;
+                    let alpha = (1.0 - (time_since / 1.0)).clamp(0.0, 1.0);
+
+                    let fade_rect = graphics::Mesh::new_rectangle(
+                        ctx,
+                        graphics::DrawMode::fill(),
+                        graphics::Rect::new(x, y, dims.x, dims.y),
+                        Color::new(0.0, 0.0, 0.0, alpha),
+                    )?;
+                    canvas.draw(&fade_rect, DrawParam::default());
                 }
 
                 if self.fade_alpha > 0.0 {
@@ -274,6 +347,96 @@ impl MenuState {
                 return Ok(());
             }
             MenuPhase::SplashGameTitle => {
+                let mut canvas = Canvas::from_frame(ctx, Color::from_rgb(10, 10, 10));
+
+                let lead_pos = self.block_target_path[self.block_path_index];
+                let lead_rect = graphics::Rect::new(lead_pos.x, lead_pos.y, 32.0, 32.0);
+                let lead_mesh = graphics::Mesh::new_rectangle(
+                    ctx,
+                    graphics::DrawMode::fill(),
+                    lead_rect,
+                    Color::from_rgb(50, 120, 255),
+                )?;
+                canvas.draw(&lead_mesh, DrawParam::default());
+
+                if self.block_timer > 3.0 {
+                    let t = ((self.block_timer - 3.0) / 4.5).clamp(0.0, 1.0);
+                    let alpha = t * t;
+
+                    let scale_factor = 164.0 / 1024.0;
+                    let dest = Vec2::new(160.0 - 164.0 / 2.0, 100.0 - 164.0 / 2.0);
+
+                    canvas.draw(
+                        &self.fade_image,
+                        DrawParam::default()
+                            .dest(dest)
+                            .scale(Vec2::splat(scale_factor))
+                            .color(Color::new(1.0, 1.0, 1.0, alpha)),
+                    );
+                }
+
+                for p in &self.destruction_particles {
+                    let rect = graphics::Rect::new(p.pos.x, p.pos.y, p.size, p.size);
+                    let mesh = graphics::Mesh::new_rectangle(
+                        ctx,
+                        graphics::DrawMode::fill(),
+                        rect,
+                        p.color,
+                    )?;
+                    canvas.draw(&mesh, DrawParam::default());
+                }
+
+                let chaser_rect = graphics::Rect::new(
+                    self.block_chaser_pos.x,
+                    self.block_chaser_pos.y,
+                    32.0,
+                    32.0,
+                );
+                let chaser_mesh = graphics::Mesh::new_rectangle(
+                    ctx,
+                    graphics::DrawMode::fill(),
+                    chaser_rect,
+                    Color::from_rgb(200, 50, 50),
+                )?;
+                canvas.draw(&chaser_mesh, DrawParam::default());
+
+                if self.block_timer > 1.0 {
+                    let t = ((self.block_timer - 1.0) * 4.0).min(1.0);
+                    let bounce = (t * std::f32::consts::PI).sin() * 8.0;
+                    let alpha = t;
+
+                    let color = if t < 1.0 {
+                        Color::new(1.0, 1.0, 1.0, alpha) // fade-in white
+                    } else {
+                        let transition = ((self.block_timer - 3.5) / 1.5).clamp(0.0, 1.0);
+                        let r = 1.0;
+                        let g = 1.0;
+                        let b = 1.0 - transition; // white → yellow (removing blue)
+                        Color::new(r, g, b, 1.0)
+                    };
+
+                    let title =
+                        Text::new(TextFragment::new("Chasin' Blocks").scale(36.0).color(color));
+
+                    let dims = title.measure(ctx)?;
+                    let x = 160.0 - dims.x / 2.0;
+                    let y = 270.0 - bounce;
+                    canvas.draw(&title, DrawParam::default().dest(Vec2::new(x, y)));
+                }
+
+                if self.block_timer > 6.0 {
+                    let fade = ((self.block_timer - 6.0) / 1.5).clamp(0.0, 1.0);
+                    let overlay = graphics::Mesh::new_rectangle(
+                        ctx,
+                        graphics::DrawMode::fill(),
+                        graphics::Rect::new(0.0, 0.0, 320.0, 320.0),
+                        Color::new(0.0, 0.0, 0.0, fade),
+                    )?;
+                    canvas.draw(&overlay, DrawParam::default());
+                }
+
+                canvas.finish(ctx)?;
+                return Ok(());
             }
             _ => {}
         }
@@ -335,7 +498,6 @@ impl MenuState {
                 let mut fragment = TextFragment::new((*line).to_string());
 
                 if i == 0 {
-                    // Title line
                     fragment = fragment.color(Color::YELLOW);
                 } else if line.contains("Press [Esc]") {
                     fragment = fragment.color(Color::from_rgb(220, 80, 80));
@@ -350,7 +512,7 @@ impl MenuState {
                 canvas.draw(&text, DrawParam::default().dest(Vec2::new(x, y)));
             }
         } else {
-            let title = graphics::Text::new(("Chasin' Blocks"));
+            let title = graphics::Text::new("Chasin' Blocks");
             let dest = Vec2::new(40.0, 40.0);
             canvas.draw(&title, DrawParam::default().dest(dest));
 
