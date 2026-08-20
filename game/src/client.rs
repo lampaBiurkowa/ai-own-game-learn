@@ -1,4 +1,4 @@
-use crate::{engine::{Cell, GameOverCause}, transport::GameApiClient};
+use crate::{achievements, engine::{Cell, GameOverCause}, transport::GameApiClient};
 
 pub(crate) struct GameClient {
     api_client: GameApiClient,
@@ -12,7 +12,8 @@ pub(crate) struct GameClient {
     score: usize,
     score_increased: bool,
     player_moved: bool,
-    player_moved_rightwards: bool
+    player_moved_rightwards: bool,
+    achievements: achievements::Tracker,
 }
 
 const VIEWPORT_WIDTH: usize = 10;
@@ -35,6 +36,7 @@ impl GameClient {
             score_increased: false,
             player_moved: false,
             player_moved_rightwards: false,
+            achievements: achievements::Tracker::new(),
         }
     }
 
@@ -55,6 +57,16 @@ impl GameClient {
         self.score = state.score();
         self.score_increased = self.score > initial_score;
         self.enemy_killed = is_enemy_killed(&initial_grid, &state.grid, (self.player_x, self.player_y));
+
+        self.achievements.record_move(achievements::Move {
+            score: self.score,
+            player_moved: self.player_moved,
+            player_moved_rightwards: self.player_moved_rightwards,
+            enemy_killed: self.enemy_killed,
+            game_over: self.game_over.clone(),
+            grid: &self.grid,
+            player_pos: (self.player_x, self.player_y),
+        });
     }
 
     pub(crate) fn get_grid(&self) -> Vec<Vec<Cell>> {

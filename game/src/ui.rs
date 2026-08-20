@@ -71,7 +71,9 @@
 //             if self.client.enemy_killed() {
 //                 println!("ENEMY KILLED");
 //             }
-//             if self.client.is_game_over() {
+//             if self.client.is_game_over().is_some() {
+//                 // process::exit skips the achievement posts still in flight.
+//                 crate::achievements::flush();
 //                 std::process::exit(0);
 //             }
 //         }

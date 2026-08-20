@@ -5,6 +5,7 @@ use dqn_linear_agent::train_agent;
 use server::run_http_server;
 // use ui::Game;
 
+mod achievements;
 mod transport;
 mod engine;
 mod server;
@@ -18,6 +19,7 @@ pub fn main()
 //  -> GameResult {
     // let cb = ggez::ContextBuilder::new("game", "ggez").window_mode(WindowMode::dimensions(WindowMode::default(), 320.0, 320.0)).add_resource_path("./resources");
     // let (mut ctx, events_loop) = cb.build()?;
+    achievements::init();
     std::thread::spawn(move || run_http_server());
     // train_agent("http:localhost:3030", 1, 1000);
     // train_dqn("http:localhost:3030", 1, 1000);

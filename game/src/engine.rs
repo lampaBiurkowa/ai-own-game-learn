@@ -7,7 +7,7 @@ const MAP_WIDTH: usize = 10;
 pub(crate) const TILE_SIZE: f32 = 32.0;
 pub(crate) const VIEWPORT_WIDTH: usize = 10;
 pub(crate) const VIEWPORT_HEIGHT: usize = 10;
-const MAX_MOVES: u64 = 100;
+pub(crate) const MAX_MOVES: u64 = 100;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct EnemyAttributes {
