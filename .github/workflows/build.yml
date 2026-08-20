@@ -1,0 +1,106 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an in-flight build pointless.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # The crate lives in game/, not at the repository root.
+    working-directory: game
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Pinned to 22.04 rather than ubuntu-latest on purpose: a glibc-linked
+          # binary will not run against an older glibc than it was built on, and
+          # building on 24.04 would quietly restrict us to recent distros.
+          - os: linux
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bin: game
+            asset: ai-own-game-learn-linux-x86_64.tar.gz
+          # Built on Windows rather than cross-compiled: reqwest links OpenSSL
+          # and burn pulls in wgpu, neither of which enjoys the mingw route.
+          - os: windows
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: game.exe
+            asset: ai-own-game-learn-windows-x86_64.zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # OpenSSL is what reqwest links against on Linux. The ALSA and udev headers
+      # are for ggez, so re-enabling the windowed client in ui.rs does not also
+      # mean coming back here to fix the build.
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libssl-dev libasound2-dev libudev-dev
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cache cargo registry and build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: game
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      # Only the achievement tests: the tensor tests in dqn_linear_agent ask for
+      # a wgpu device and the runners have no GPU.
+      - name: Test
+        run: "cargo test --release --locked --target ${{ matrix.target }} achievements::"
+
+      - name: Stage the build
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" dist/
+          # The game loads its tiles from ./resources next to the executable.
+          cp -r resources dist/
+          ls -lR dist
+
+      # tar on Linux so the executable bit survives; zip on Windows, where it is
+      # meaningless anyway.
+      - name: Archive (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: tar -czf "${{ matrix.asset }}" -C dist .
+
+      # Archived from inside dist so the entries are bare names rather than a
+      # dist/ prefix, and under bash so the shell does the globbing, not 7z.
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: cd dist && 7z a "../${{ matrix.asset }}" *
+
+      - name: Upload ${{ matrix.asset }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: game/${{ matrix.asset }}
+          if-no-files-found: error
