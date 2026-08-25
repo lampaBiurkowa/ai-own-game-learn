@@ -48,9 +48,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # OpenSSL is what reqwest links against on Linux. The ALSA and udev headers
-      # are for ggez, so re-enabling the windowed client in ui.rs does not also
-      # mean coming back here to fix the build.
+      # OpenSSL is what reqwest links against on Linux; ALSA and udev are what
+      # ggez needs at link time.
       - name: Install build dependencies
         if: runner.os == 'Linux'
         run: |
@@ -70,10 +69,11 @@ jobs:
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }}
 
-      # Only the achievement tests: the tensor tests in dqn_linear_agent ask for
-      # a wgpu device and the runners have no GPU.
+      # Note if you ever switch mod dqn_linear_agent back on: its tensor tests ask
+      # for a wgpu device, and the runners have no GPU. They would need filtering
+      # out here.
       - name: Test
-        run: "cargo test --release --locked --target ${{ matrix.target }} achievements::"
+        run: cargo test --release --locked --target ${{ matrix.target }}
 
       - name: Stage the build
         shell: bash
