@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use serde::{Deserialize, Serialize};
 use warp::Filter;
@@ -13,9 +16,8 @@ pub(crate) struct MoveCommand {
 
 #[tokio::main]
 pub(crate) async fn run_http_server() {
-
     let games = Arc::new(Mutex::new(HashMap::<u64, GameState>::new()));
-    
+
     let games_clone = Arc::clone(&games);
     let init = warp::path("game")
         .and(warp::path::param::<u64>())
