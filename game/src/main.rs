@@ -5,6 +5,7 @@ use ui::Game;
 mod achievements;
 mod client;
 mod engine;
+mod platform;
 mod server;
 mod transport;
 mod ui;
@@ -21,6 +22,7 @@ pub fn main() -> GameResult {
     achievements::init();
 
     let cb = ggez::ContextBuilder::new("game", "ggez")
+        .backend(platform::preferred_backend())
         .window_mode(WindowMode::dimensions(WindowMode::default(), 320.0, 320.0))
         .add_resource_path("./resources");
     let (mut ctx, events_loop) = cb.build()?;
